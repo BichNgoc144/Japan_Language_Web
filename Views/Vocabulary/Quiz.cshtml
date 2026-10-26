@@ -1,0 +1,373 @@
+@model LessonQuizViewModel
+@{
+    ViewData["Title"] = $"Kiểm tra Bài {Model.LessonNumber} — {Model.VocaLevel}";
+}
+
+<p class="card__eyebrow">巻 07 — @Model.VocaLevel · Bài @Model.LessonNumber</p>
+<h1 style="font-family:var(--font-display);font-size:1.7rem;font-weight:800;margin:0 0 6px;">Kiểm tra từ vựng</h1>
+@if (Model.AlreadyPassed)
+{
+<div class="alert alert--success">Bạn đã qua bài này (điểm cao nhất: @Model.BestScore%). Làm lại để cải thiện điểm.</div>
+}
+
+<form id="afForm" style="display:none;">@Html.AntiForgeryToken()</form>
+
+<div style="background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:28px;position:relative;">
+    <div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--seal);"></div>
+
+    <!-- Trạng thái 1: Cài đặt -->
+    <div id="quizSettings">
+        <div class="grid-2">
+            <div class="field">
+                <label for="answerMode">Chế độ trả lời</label>
+                <select id="answerMode">
+                    <option value="meaning">Nhìn chữ, đoán nghĩa</option>
+                    <option value="listening">Nghe và viết hiragana</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="quizDuration">Thời gian làm bài</label>
+                <select id="quizDuration">
+                    <option value="5">5 phút</option>
+                    <option value="10" selected>10 phút</option>
+                    <option value="15">15 phút</option>
+                    <option value="20">20 phút</option>
+                    <option value="30">30 phút</option>
+                </select>
+                <span class="hint">Cần đạt tối thiểu 80% để qua bài và mở khoá bài tiếp theo.</span>
+            </div>
+        </div>
+        <button type="button" class="btn btn--primary" id="startQuizBtn" style="max-width:260px;">Bắt đầu kiểm tra</button>
+    </div>
+
+    <!-- Trạng thái 2: Đang làm bài -->
+    <div id="quizQuestion" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+            <span class="badge" id="qProgress">0 / 0 đã điền</span>
+            <span class="badge" id="qTimer" style="font-family:var(--font-mono);">10:00</span>
+        </div>
+        <form id="qForm">
+            <div id="qGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(190px,1fr));gap:10px;"></div>
+            <div class="btn-stack" style="margin-top:22px;">
+                <button type="submit" class="btn btn--primary">Kết thúc bài kiểm tra</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Trạng thái 3: Kết quả -->
+    <div id="quizResult" style="display:none;">
+        <p class="card__eyebrow">Kết quả</p>
+        <h2 style="font-family:var(--font-display);font-size:1.3rem;margin:0 0 4px;"><span id="rScore">0 / 0</span> — <span id="rPct">0%</span></h2>
+        <div id="rBanner" class="alert" style="margin-top:14px;"></div>
+        <div class="grid-2" style="margin:18px 0 22px;">
+            <p style="display:flex;justify-content:space-between;font-size:.88rem;border-bottom:1px dashed var(--rule);padding:6px 0;">Đúng <b id="rCorrect">0</b></p>
+            <p style="display:flex;justify-content:space-between;font-size:.88rem;border-bottom:1px dashed var(--rule);padding:6px 0;">Sai <b id="rWrong">0</b></p>
+            <p style="display:flex;justify-content:space-between;font-size:.88rem;border-bottom:1px dashed var(--rule);padding:6px 0;">Chưa làm <b id="rSkipped">0</b></p>
+            <p style="display:flex;justify-content:space-between;font-size:.88rem;border-bottom:1px dashed var(--rule);padding:6px 0;">Thời gian <b id="rTime">0:00</b></p>
+        </div>
+        <div class="btn-stack">
+            <button type="button" class="btn btn--primary" id="retryBtn">Làm lại</button>
+            <a asp-controller="Vocabulary" asp-action="Study" asp-route-level="@Model.VocaLevel" asp-route-number="@Model.LessonNumber" class="btn btn--ghost">Về trang học</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .quiz-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        background: var(--paper);
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+        padding: 10px;
+    }
+
+    .quiz-cell__char {
+        font-family: var(--font-display);
+        font-size: 1.15rem;
+        color: var(--ink);
+    }
+
+    .quiz-cell__input {
+        width: 100%;
+        padding: 7px 8px;
+        font-family: var(--font-body);
+        font-size: .82rem;
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+    }
+
+        .quiz-cell__input:focus-visible {
+            outline: none;
+            border-color: var(--seal);
+            box-shadow: 0 0 0 3px var(--seal-tint);
+        }
+
+    .quiz-cell.is-correct {
+        border-color: var(--success);
+        background: var(--success-tint);
+    }
+
+    .quiz-cell.is-wrong {
+        border-color: var(--error);
+        background: var(--error-tint);
+    }
+
+    .quiz-cell.is-skipped {
+        border-color: var(--ink-faint);
+        background: var(--paper);
+        opacity: .75;
+    }
+
+    .quiz-cell__play {
+        align-self: flex-start;
+        background: var(--seal-tint);
+        border: 1px solid var(--rule);
+        color: var(--seal-dark);
+        font-weight: 600;
+        font-size: .78rem;
+        padding: 5px 10px;
+        border-radius: 20px;
+        cursor: pointer;
+    }
+
+        .quiz-cell__play:hover {
+            background: var(--seal);
+            color: #fff;
+        }
+
+    .quiz-cell__options {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .quiz-cell__option {
+        text-align: left;
+        background: #fff;
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+        padding: 6px 8px;
+        font-size: .76rem;
+        cursor: pointer;
+        font-family: var(--font-body);
+        color: var(--ink);
+    }
+
+        .quiz-cell__option:hover {
+            border-color: var(--seal);
+        }
+
+        .quiz-cell__option.is-selected {
+            border-color: var(--seal);
+            background: var(--seal-tint);
+            font-weight: 600;
+        }
+</style>
+
+@section Scripts {
+    <script>
+  const vocaWords = @Json.Serialize(Model.Words);
+  const meaningPool = @Json.Serialize(Model.MeaningPool);
+  const lessonLevel = '@Model.VocaLevel';
+  const lessonNumber = @Model.LessonNumber;
+
+  (function () {
+    const settingsPanel = document.getElementById('quizSettings');
+    const questionPanel = document.getElementById('quizQuestion');
+    const resultPanel = document.getElementById('quizResult');
+    const qGrid = document.getElementById('qGrid');
+    const qProgress = document.getElementById('qProgress');
+
+    let mode = 'meaning', totalCount = 0, startTime = 0, endTime = 0, timerInterval = null, finished = false;
+    let lastMinutes = 10;
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function speakWord(text) {
+      if (!('speechSynthesis' in window) || !text) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'ja-JP';
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utter);
+    }
+
+    /// Chọn 3 nghĩa nhiễu khác nghĩa đúng, không trùng nhau, lấy từ kho nghĩa toàn level.
+    function pickDistractors(correctMeaning, count) {
+      const pool = meaningPool.filter(m => m !== correctMeaning);
+      shuffle(pool);
+      return pool.slice(0, count);
+    }
+
+    function updateProgress() {
+      let answered = 0;
+      if (mode === 'meaning') {
+        answered = qGrid.querySelectorAll('.quiz-cell[data-selected="1"]').length;
+      } else {
+        answered = Array.from(qGrid.querySelectorAll('.quiz-cell__input')).filter(i => i.value.trim() !== '').length;
+      }
+      qProgress.textContent = answered + ' / ' + totalCount + ' đã điền';
+    }
+
+    function startQuiz(minutes, answerMode) {
+      mode = answerMode;
+      lastMinutes = minutes;
+      const items = shuffle(vocaWords.slice());
+      totalCount = items.length;
+      startTime = Date.now();
+      endTime = startTime + minutes * 60000;
+      finished = false;
+
+      settingsPanel.style.display = 'none';
+      resultPanel.style.display = 'none';
+      questionPanel.style.display = 'block';
+
+      qGrid.innerHTML = '';
+      items.forEach(item => {
+        const cell = document.createElement('div');
+        cell.className = 'quiz-cell';
+        cell.dataset.wordId = item.id;
+
+        if (mode === 'meaning') {
+          // Nhìn chữ hira_kana, chọn 1 trong 4 nghĩa.
+          const correct = item.meaningVn || '';
+          const options = shuffle([correct, ...pickDistractors(correct, 3)]);
+          cell.dataset.correct = correct.replace(/"/g, '&quot;');
+          cell.innerHTML =
+            '<span class="quiz-cell__char">' + (item.hiraKana || '') + '</span>' +
+            '<div class="quiz-cell__options">' +
+            options.map(o => '<button type="button" class="quiz-cell__option">' + o + '</button>').join('') +
+            '</div>';
+
+          cell.querySelectorAll('.quiz-cell__option').forEach(btn => {
+            btn.addEventListener('click', () => {
+              cell.querySelectorAll('.quiz-cell__option').forEach(b => b.classList.remove('is-selected'));
+              btn.classList.add('is-selected');
+              cell.dataset.selected = '1';
+              cell.dataset.selectedValue = btn.textContent;
+              updateProgress();
+            });
+          });
+        } else {
+          // Nghe phát âm rồi viết lại — chấp nhận hira_kana HOẶC kanji (nếu từ có kanji).
+          const speakText = item.kanji || item.hiraKana || '';
+          cell.dataset.hira = (item.hiraKana || '').replace(/"/g, '&quot;');
+          cell.dataset.kanji = (item.kanji || '').replace(/"/g, '&quot;');
+          cell.innerHTML =
+            '<button type="button" class="quiz-cell__play" data-speak="' + speakText.replace(/"/g, '&quot;') + '">🔊 Nghe</button>' +
+            '<input type="text" class="quiz-cell__input" autocomplete="off" placeholder="nhập hiragana hoặc kanji…">';
+        }
+        qGrid.appendChild(cell);
+      });
+
+      qGrid.querySelectorAll('.quiz-cell__play').forEach(btn => {
+        btn.addEventListener('click', () => speakWord(btn.dataset.speak));
+      });
+      qGrid.addEventListener('input', updateProgress);
+      updateProgress();
+
+      clearInterval(timerInterval);
+      timerInterval = setInterval(updateTimer, 1000);
+      updateTimer();
+    }
+
+    document.getElementById('startQuizBtn').addEventListener('click', () => {
+      startQuiz(parseInt(document.getElementById('quizDuration').value, 10), document.getElementById('answerMode').value);
+    });
+
+    document.getElementById('qForm').addEventListener('submit', (e) => { e.preventDefault(); finishQuiz(); });
+
+    function updateTimer() {
+      const remain = Math.max(0, endTime - Date.now());
+      const m = Math.floor(remain / 60000), s = Math.floor((remain % 60000) / 1000);
+      document.getElementById('qTimer').textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+      if (remain <= 0) finishQuiz();
+    }
+
+    function normalize(s) { return (s || '').trim().toLowerCase(); }
+
+    async function finishQuiz() {
+      if (finished) return;
+      finished = true;
+      clearInterval(timerInterval);
+
+      let correctCount = 0, wrongCount = 0, skippedCount = 0;
+      const answers = [];
+
+      qGrid.querySelectorAll('.quiz-cell').forEach(cell => {
+        const wordId = cell.dataset.wordId;
+        let outcome; // 'correct' | 'wrong' | 'skipped'
+
+        if (mode === 'meaning') {
+          if (cell.dataset.selected !== '1') {
+            outcome = 'skipped';
+          } else {
+            outcome = normalize(cell.dataset.selectedValue) === normalize(cell.dataset.correct) ? 'correct' : 'wrong';
+          }
+        } else {
+          const input = cell.querySelector('.quiz-cell__input');
+          const val = normalize(input.value);
+          if (val === '') {
+            outcome = 'skipped';
+          } else {
+            // Chấp nhận hira_kana hoặc kanji (chỉ khi từ thực sự có kanji — không coi rỗng là khớp).
+            const matchesHira = val === normalize(cell.dataset.hira);
+            const matchesKanji = cell.dataset.kanji !== '' && val === normalize(cell.dataset.kanji);
+            outcome = (matchesHira || matchesKanji) ? 'correct' : 'wrong';
+          }
+        }
+
+        if (outcome === 'correct') { correctCount++; cell.classList.add('is-correct'); }
+        else if (outcome === 'wrong') { wrongCount++; cell.classList.add('is-wrong'); }
+        else { skippedCount++; cell.classList.add('is-skipped'); }
+
+        answers.push({ wordId: wordId, isCorrect: outcome === 'correct' });
+      });
+
+      const elapsedSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+
+      document.getElementById('rScore').textContent = correctCount + ' / ' + totalCount;
+      document.getElementById('rCorrect').textContent = correctCount;
+      document.getElementById('rWrong').textContent = wrongCount;
+      document.getElementById('rSkipped').textContent = skippedCount;
+      const m = Math.floor(elapsedSec / 60), s = elapsedSec % 60;
+      document.getElementById('rTime').textContent = m + ':' + String(s).padStart(2, '0');
+
+      const token = document.querySelector('#afForm input[name="__RequestVerificationToken"]').value;
+      let result;
+      try {
+        const res = await fetch('@Url.Action("SubmitQuizResult", "Vocabulary")', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
+          body: JSON.stringify({ vocaLevel: lessonLevel, lessonNumber: lessonNumber, elapsedSeconds: elapsedSec, answers })
+        });
+        result = await res.json();
+      } catch {
+        result = { passed: false, percentScore: 0, leveledUp: false, message: 'Không thể kết nối máy chủ để lưu kết quả. Kiểm tra lại mạng.' };
+      }
+
+      document.getElementById('rPct').textContent = result.percentScore + '%';
+      const banner = document.getElementById('rBanner');
+      banner.textContent = result.message;
+      banner.className = 'alert ' + (result.passed ? 'alert--success' : 'alert--error');
+
+      setTimeout(() => {
+        questionPanel.style.display = 'none';
+        resultPanel.style.display = 'block';
+      }, 700);
+    }
+
+    document.getElementById('retryBtn').addEventListener('click', () => {
+      resultPanel.style.display = 'none';
+      startQuiz(lastMinutes, mode);
+    });
+  })();
+    </script>
+}

@@ -1,0 +1,350 @@
+@model ReviewIndexViewModel
+@{
+    ViewData["Title"] = "Ôn tập";
+}
+
+<p class="card__eyebrow">巻 09 — Ôn tập</p>
+<h1 style="font-family:var(--font-display);font-size:1.7rem;font-weight:800;margin:0 0 6px;">Ôn lại từ vựng</h1>
+<p style="font-size:.94rem;color:var(--ink-soft);margin:0 0 22px;">Ưu tiên những từ bạn còn yếu (trả lời đúng ít lần nhất) lên trước.</p>
+
+<form id="afForm" style="display:none;">@Html.AntiForgeryToken()</form>
+
+@if (Model.Candidates.Count == 0)
+{
+<div class="alert alert--error">Bạn chưa có từ nào để ôn tập. Hãy học và làm vài bài kiểm tra trước đã!</div>
+}
+else
+{
+<div style="background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:28px;position:relative;">
+    <div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--seal);"></div>
+
+    <!-- Trạng thái 1: Cài đặt -->
+    <div id="reviewSettings">
+        <p style="font-size:.86rem;color:var(--ink-soft);margin:0 0 18px;">Bạn có <b>@Model.Candidates.Count</b> từ trong kho ôn tập.</p>
+        <div class="grid-2">
+            <div class="field">
+                <label for="reviewScope">Phạm vi</label>
+                <select id="reviewScope">
+                    <option value="all">Cả N5 và N4</option>
+                    <option value="N5">Chỉ N5</option>
+                    <option value="N4">Chỉ N4</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="reviewCount">Số từ ôn tập</label>
+                <select id="reviewCount">
+                    <option value="10">10 từ yếu nhất</option>
+                    <option value="20" selected>20 từ yếu nhất</option>
+                    <option value="30">30 từ yếu nhất</option>
+                    <option value="9999">Tất cả</option>
+                </select>
+            </div>
+        </div>
+        <div class="field">
+            <label for="reviewMode">Chế độ trả lời</label>
+            <select id="reviewMode">
+                <option value="meaning">Nhìn chữ, đoán nghĩa</option>
+                <option value="listening">Nghe và viết hiragana</option>
+            </select>
+        </div>
+        <button type="button" class="btn btn--primary" id="startReviewBtn" style="max-width:260px;">Bắt đầu ôn tập</button>
+    </div>
+
+    <!-- Trạng thái 2: Đang ôn tập -->
+    <div id="reviewQuestion" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+            <span class="badge" id="qProgress">0 / 0 đã điền</span>
+        </div>
+        <form id="qForm">
+            <div id="qGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(190px,1fr));gap:10px;"></div>
+            <div class="btn-stack" style="margin-top:22px;">
+                <button type="submit" class="btn btn--primary">Kết thúc ôn tập</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Trạng thái 3: Kết quả -->
+    <div id="reviewResult" style="display:none;">
+        <p class="card__eyebrow">Kết quả</p>
+        <h2 style="font-family:var(--font-display);font-size:1.3rem;margin:0 0 14px;"><span id="rScore">0 / 0</span></h2>
+        <div id="rBanner" class="alert alert--success"></div>
+        <div class="btn-stack" style="margin-top:20px;">
+            <button type="button" class="btn btn--primary" id="retryBtn">Ôn tập tiếp</button>
+            <a asp-controller="Stats" asp-action="Index" class="btn btn--ghost">Xem thống kê</a>
+        </div>
+    </div>
+</div>
+}
+
+<style>
+    .quiz-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        background: var(--paper);
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+        padding: 10px;
+    }
+
+    .quiz-cell__char {
+        font-family: var(--font-display);
+        font-size: 1.15rem;
+        color: var(--ink);
+    }
+
+    .quiz-cell__input {
+        width: 100%;
+        padding: 7px 8px;
+        font-family: var(--font-body);
+        font-size: .82rem;
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+    }
+
+        .quiz-cell__input:focus-visible {
+            outline: none;
+            border-color: var(--seal);
+            box-shadow: 0 0 0 3px var(--seal-tint);
+        }
+
+    .quiz-cell.is-correct {
+        border-color: var(--success);
+        background: var(--success-tint);
+    }
+
+    .quiz-cell.is-wrong {
+        border-color: var(--error);
+        background: var(--error-tint);
+    }
+
+    .quiz-cell.is-skipped {
+        border-color: var(--ink-faint);
+        background: var(--paper);
+        opacity: .75;
+    }
+
+    .quiz-cell__play {
+        align-self: flex-start;
+        background: var(--seal-tint);
+        border: 1px solid var(--rule);
+        color: var(--seal-dark);
+        font-weight: 600;
+        font-size: .78rem;
+        padding: 5px 10px;
+        border-radius: 20px;
+        cursor: pointer;
+    }
+
+        .quiz-cell__play:hover {
+            background: var(--seal);
+            color: #fff;
+        }
+
+    .quiz-cell__options {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .quiz-cell__option {
+        text-align: left;
+        background: #fff;
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+        padding: 6px 8px;
+        font-size: .76rem;
+        cursor: pointer;
+        font-family: var(--font-body);
+        color: var(--ink);
+    }
+
+        .quiz-cell__option:hover {
+            border-color: var(--seal);
+        }
+
+        .quiz-cell__option.is-selected {
+            border-color: var(--seal);
+            background: var(--seal-tint);
+            font-weight: 600;
+        }
+</style>
+
+@section Scripts {
+    <script>
+  const allCandidates = @Json.Serialize(Model.Candidates); // đã sắp yếu nhất trước từ server
+
+  (function () {
+    const settingsPanel = document.getElementById('reviewSettings');
+    const questionPanel = document.getElementById('reviewQuestion');
+    const resultPanel = document.getElementById('reviewResult');
+    if (!settingsPanel) return; // không có từ nào để ôn tập
+
+    const qGrid = document.getElementById('qGrid');
+    const qProgress = document.getElementById('qProgress');
+
+    let mode = 'meaning', totalCount = 0, finished = false;
+    let lastScope = 'all', lastCount = 20, lastMode = 'meaning';
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function speakWord(text) {
+      if (!('speechSynthesis' in window) || !text) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'ja-JP';
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utter);
+    }
+
+    function pickDistractors(correctMeaning, pool, count) {
+      const filtered = pool.filter(m => m && m !== correctMeaning);
+      shuffle(filtered);
+      return filtered.slice(0, count);
+    }
+
+    function updateProgress() {
+      let answered = 0;
+      if (mode === 'meaning') {
+        answered = qGrid.querySelectorAll('.quiz-cell[data-selected="1"]').length;
+      } else {
+        answered = Array.from(qGrid.querySelectorAll('.quiz-cell__input')).filter(i => i.value.trim() !== '').length;
+      }
+      qProgress.textContent = answered + ' / ' + totalCount + ' đã điền';
+    }
+
+    function startReview(scope, count, answerMode) {
+      lastScope = scope; lastCount = count; lastMode = answerMode;
+      mode = answerMode;
+      finished = false;
+
+      const pool = scope === 'all' ? allCandidates : allCandidates.filter(c => c.vocaLevel === scope);
+      const items = pool.slice(0, count); // đã sắp yếu nhất trước, lấy top N rồi mới xáo để hiển thị
+      shuffle(items);
+      totalCount = items.length;
+
+      if (totalCount === 0) {
+        alert('Không có từ nào trong phạm vi này để ôn tập.');
+        return;
+      }
+
+      const meaningPool = pool.map(c => c.meaningVn);
+
+      settingsPanel.style.display = 'none';
+      resultPanel.style.display = 'none';
+      questionPanel.style.display = 'block';
+
+      qGrid.innerHTML = '';
+      items.forEach(item => {
+        const cell = document.createElement('div');
+        cell.className = 'quiz-cell';
+        cell.dataset.wordId = item.wordId;
+        cell.dataset.level = item.vocaLevel;
+
+        if (mode === 'meaning') {
+          const correct = item.meaningVn || '';
+          const options = shuffle([correct, ...pickDistractors(correct, meaningPool, 3)]);
+          cell.dataset.correct = correct.replace(/"/g, '&quot;');
+          cell.innerHTML =
+            '<span class="quiz-cell__char">' + (item.hiraKana || '') + '</span>' +
+            '<div class="quiz-cell__options">' +
+            options.map(o => '<button type="button" class="quiz-cell__option">' + o + '</button>').join('') +
+            '</div>';
+          cell.querySelectorAll('.quiz-cell__option').forEach(btn => {
+            btn.addEventListener('click', () => {
+              cell.querySelectorAll('.quiz-cell__option').forEach(b => b.classList.remove('is-selected'));
+              btn.classList.add('is-selected');
+              cell.dataset.selected = '1';
+              cell.dataset.selectedValue = btn.textContent;
+              updateProgress();
+            });
+          });
+        } else {
+          const speakText = item.kanji || item.hiraKana || '';
+          cell.dataset.hira = (item.hiraKana || '').replace(/"/g, '&quot;');
+          cell.dataset.kanji = (item.kanji || '').replace(/"/g, '&quot;');
+          cell.innerHTML =
+            '<button type="button" class="quiz-cell__play" data-speak="' + speakText.replace(/"/g, '&quot;') + '">🔊 Nghe</button>' +
+            '<input type="text" class="quiz-cell__input" autocomplete="off" placeholder="nhập hiragana hoặc kanji…">';
+        }
+        qGrid.appendChild(cell);
+      });
+
+      qGrid.querySelectorAll('.quiz-cell__play').forEach(btn => {
+        btn.addEventListener('click', () => speakWord(btn.dataset.speak));
+      });
+      qGrid.addEventListener('input', updateProgress);
+      updateProgress();
+    }
+
+    document.getElementById('startReviewBtn').addEventListener('click', () => {
+      startReview(
+        document.getElementById('reviewScope').value,
+        parseInt(document.getElementById('reviewCount').value, 10),
+        document.getElementById('reviewMode').value
+      );
+    });
+
+    document.getElementById('qForm').addEventListener('submit', (e) => { e.preventDefault(); finishReview(); });
+
+    function normalize(s) { return (s || '').trim().toLowerCase(); }
+
+    async function finishReview() {
+      if (finished) return;
+      finished = true;
+
+      let correctCount = 0;
+      const answers = [];
+
+      qGrid.querySelectorAll('.quiz-cell').forEach(cell => {
+        let isCorrect = false;
+
+        if (mode === 'meaning') {
+          isCorrect = cell.dataset.selected === '1' && normalize(cell.dataset.selectedValue) === normalize(cell.dataset.correct);
+        } else {
+          const input = cell.querySelector('.quiz-cell__input');
+          const val = normalize(input.value);
+          const matchesHira = val !== '' && val === normalize(cell.dataset.hira);
+          const matchesKanji = val !== '' && cell.dataset.kanji !== '' && val === normalize(cell.dataset.kanji);
+          isCorrect = matchesHira || matchesKanji;
+        }
+
+        cell.classList.add(isCorrect ? 'is-correct' : 'is-wrong');
+        if (isCorrect) correctCount++;
+        answers.push({ vocaLevel: cell.dataset.level, wordId: cell.dataset.wordId, isCorrect });
+      });
+
+      document.getElementById('rScore').textContent = correctCount + ' / ' + totalCount;
+
+      const token = document.querySelector('#afForm input[name="__RequestVerificationToken"]').value;
+      let result;
+      try {
+        const res = await fetch('@Url.Action("SubmitReviewResult", "Review")', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
+          body: JSON.stringify({ answers })
+        });
+        result = await res.json();
+      } catch {
+        result = { message: 'Không thể kết nối máy chủ để lưu kết quả.' };
+      }
+      document.getElementById('rBanner').textContent = result.message;
+
+      setTimeout(() => {
+        questionPanel.style.display = 'none';
+        resultPanel.style.display = 'block';
+      }, 700);
+    }
+
+    document.getElementById('retryBtn').addEventListener('click', () => {
+      resultPanel.style.display = 'none';
+      startReview(lastScope, lastCount, lastMode);
+    });
+  })();
+    </script>
+}

@@ -1,0 +1,106 @@
+@{
+    ViewData["Title"] = "Trang chủ";
+    ViewData["WideLayout"] = true;
+    var reminders = ViewData["TodoReminders"] as List<TodoReminderDto>;
+}
+
+<div style="width:100%;max-width:980px;">
+
+    @if (reminders is { Count: > 0 })
+  {
+    <div style="background:var(--paper-raised);border:1px solid var(--rule);border-left:4px solid var(--seal);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;">
+        <p style="font-family:var(--font-mono);font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--seal);margin:0 0 10px;">🔔 Nhắc nhở việc cần làm</p>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+            @foreach (var r in reminders)
+          {
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.86rem;">
+                <span>@r.Title</span>
+                <span class="badge" style="@(r.IsOverdue ? "border-color:var(--error);color:var(--error);" : r.IsToday ? "border-color:var(--seal);color:var(--seal-dark);" : "")">
+                    @(r.IsOverdue ? "Quá hạn" : r.IsToday ? "Hôm nay" : r.DueDate.ToString("dd/MM"))
+                </span>
+            </div>
+          }
+        </div>
+        <a asp-controller="Todo" asp-action="Index" class="link-btn" style="display:inline-block;margin-top:10px;">Xem tất cả trong To-do →</a>
+    </div>
+  }
+
+    <!-- ===== Hero: banner quảng bá + 2 nút CTA ===== -->
+    <div style="background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-card);overflow:hidden;display:grid;grid-template-columns:1.1fr 1fr;">
+
+        <div style="padding:48px 44px;display:flex;flex-direction:column;justify-content:center;">
+            <p class="card__eyebrow">巻 00 — Chào mừng</p>
+            <h1 style="font-family:var(--font-display);font-size:2.1rem;font-weight:800;line-height:1.2;margin:0 0 14px;color:var(--ink);">
+                Học tiếng Nhật<br>từng chữ một, <span style="color:var(--seal);">đều đặn mỗi ngày</span>
+            </h1>
+            <p style="font-size:.98rem;color:var(--ink-soft);line-height:1.6;margin:0 0 30px;max-width:38ch;">
+                Từ vựng N5–N4, Hiragana, Katakana và lộ trình theo cấp độ riêng cho bạn —
+                tất cả trong một cuốn "bản thảo học tập" duy nhất.
+            </p>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <a asp-controller="Account" asp-action="Login" class="btn btn--primary" style="width:auto;padding:13px 28px;">Đăng nhập</a>
+                <a asp-controller="Account" asp-action="Register" class="btn btn--ghost" style="width:auto;padding:13px 28px;">Đăng ký miễn phí</a>
+            </div>
+        </div>
+
+        <!-- Minh hoạ SVG gốc: cổng torii + cánh hoa anh đào, cùng bảng màu ink/seal/paper -->
+        <div style="background:var(--paper);border-left:1px solid var(--rule);display:flex;align-items:center;justify-content:center;padding:20px;">
+            <svg viewBox="0 0 320 320" width="100%" height="100%" style="max-width:320px;" role="img" aria-label="Minh hoạ cổng torii và hoa anh đào">
+                <circle cx="160" cy="150" r="118" fill="var(--seal-tint)" opacity="0.5" />
+                <rect x="0" y="250" width="320" height="70" fill="var(--paper-raised)" />
+                <line x1="0" y1="250" x2="320" y2="250" stroke="var(--rule)" stroke-width="1.5" />
+                <g fill="none" stroke="var(--seal)" stroke-width="10" stroke-linecap="round">
+                    <line x1="95" y1="120" x2="95" y2="250" />
+                    <line x1="225" y1="120" x2="225" y2="250" />
+                    <path d="M78 110 L242 110" stroke-width="14" />
+                    <path d="M70 130 L250 130" stroke-width="8" />
+                    <line x1="160" y1="130" x2="160" y2="180" stroke-width="6" />
+                </g>
+                <circle cx="252" cy="72" r="20" fill="var(--seal)" />
+                <text x="252" y="79" font-family="Shippori Mincho, serif" font-size="18" fill="var(--paper-raised)" text-anchor="middle">語</text>
+                <g fill="var(--seal)" opacity="0.55">
+                    <circle cx="60" cy="80" r="4" />
+                    <circle cx="80" cy="95" r="3" />
+                    <circle cx="45" cy="105" r="3" />
+                    <circle cx="270" cy="140" r="4" />
+                    <circle cx="285" cy="160" r="3" />
+                    <circle cx="120" cy="60" r="3" />
+                    <circle cx="200" cy="70" r="3" />
+                </g>
+            </svg>
+        </div>
+    </div>
+
+    <!-- ===== Dải giới thiệu tính năng ===== -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px;">
+        <div style="background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);padding:22px;">
+            <span class="badge" style="margin-bottom:10px;">巻 A</span>
+            <h3 style="font-family:var(--font-display);font-size:1.05rem;margin:8px 0 6px;">Từ vựng N5 – N4</h3>
+            <p style="font-size:.86rem;color:var(--ink-soft);line-height:1.55;margin:0;">Học theo cấp độ chuẩn Minna no Nihongo, có nghĩa Việt/Anh song song.</p>
+        </div>
+        <div style="background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);padding:22px;">
+            <span class="badge" style="margin-bottom:10px;">巻 B</span>
+            <h3 style="font-family:var(--font-display);font-size:1.05rem;margin:8px 0 6px;">Hiragana &amp; Katakana</h3>
+            <p style="font-size:.86rem;color:var(--ink-soft);line-height:1.55;margin:0;">Luyện bảng chữ cái nền tảng trước khi bước vào Kanji.</p>
+        </div>
+        <div style="background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);padding:22px;">
+            <span class="badge" style="margin-bottom:10px;">巻 C</span>
+            <h3 style="font-family:var(--font-display);font-size:1.05rem;margin:8px 0 6px;">Theo dõi tiến độ</h3>
+            <p style="font-size:.86rem;color:var(--ink-soft);line-height:1.55;margin:0;">Level và điểm tích luỹ luôn hiển thị ngay trên hồ sơ của bạn.</p>
+        </div>
+    </div>
+
+    <p class="foot-note" style="margin-top:26px;">Đã có tài khoản? <a asp-controller="Account" asp-action="Login">Đăng nhập ngay</a></p>
+</div>
+
+<style>
+    @@media (max-width: 720px) {
+        div[style*="grid-template-columns:1.1fr 1fr"] {
+            grid-template-columns: 1fr !important;
+        }
+
+        div[style*="repeat(3,1fr)"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>

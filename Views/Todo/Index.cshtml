@@ -1,0 +1,247 @@
+@model TodoCalendarViewModel
+@{
+    ViewData["Title"] = "To-do";
+    ViewData["WideLayout"] = true;
+    var weekdayNames = new[] { "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật" };
+}
+
+<p class="card__eyebrow">巻 10 — To-do</p>
+<h1 style="font-family:var(--font-display);font-size:1.9rem;font-weight:800;margin:0 0 20px;">Việc cần làm</h1>
+
+<div class="summary-row" style="grid-template-columns:repeat(2,1fr);margin-bottom:20px;max-width:420px;">
+    <div class="summary-stat"><b>@Model.TotalPending</b><span>Chưa hoàn thành</span></div>
+    <div class="summary-stat"><b>@Model.TotalOverdue</b><span>Quá hạn</span></div>
+</div>
+
+<!-- ===== Form thêm nhanh ===== -->
+<form asp-controller="Todo" asp-action="Create" method="post" style="background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:18px 20px;margin-bottom:22px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+    <input type="hidden" name="year" value="@Model.Year">
+    <input type="hidden" name="month" value="@Model.Month">
+    <div class="field" style="flex:2;min-width:180px;margin-bottom:0;">
+        <label for="Title">Tiêu đề</label>
+        <input type="text" id="Title" name="Title" maxlength="200" placeholder="Ví dụ: Học Bài 5 N5" required>
+    </div>
+    <div class="field" style="flex:1;min-width:150px;margin-bottom:0;">
+        <label for="DueDate">Ngày đến hạn</label>
+        <input type="date" id="DueDate" name="DueDate" value="@DateTime.Today.ToString("yyyy-MM-dd")" required>
+    </div>
+    <div class="field" style="flex:2;min-width:180px;margin-bottom:0;">
+        <label for="Note">Ghi chú (tuỳ chọn)</label>
+        <input type="text" id="Note" name="Note" maxlength="1000">
+    </div>
+    <div class="field" style="flex:1;min-width:130px;margin-bottom:0;">
+        <label for="Priority">Độ ưu tiên</label>
+        <select id="Priority" name="Priority">
+            <option value="Low">Thấp</option>
+            <option value="Medium" selected>Trung bình</option>
+            <option value="High">Cao</option>
+        </select>
+    </div>
+    <label class="checkbox-row" style="margin-bottom:11px;">
+        <input type="checkbox" id="EnableReminder" name="EnableReminder" value="true"> Nhắc nhở ở trang chủ
+    </label>
+    <button type="submit" class="btn btn--primary" style="width:auto;padding:11px 22px;">+ Thêm</button>
+</form>
+
+<!-- ===== Điều hướng tháng ===== -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <a class="btn btn--ghost" style="width:auto;padding:8px 16px;" asp-action="Index" asp-route-year="@(Model.Month == 1 ? Model.Year - 1 : Model.Year)" asp-route-month="@(Model.Month == 1 ? 12 : Model.Month - 1)">← Tháng trước</a>
+    <h2 style="font-family:var(--font-display);font-size:1.2rem;text-transform:capitalize;margin:0;">@Model.MonthLabel</h2>
+    <a class="btn btn--ghost" style="width:auto;padding:8px 16px;" asp-action="Index" asp-route-year="@(Model.Month == 12 ? Model.Year + 1 : Model.Year)" asp-route-month="@(Model.Month == 12 ? 1 : Model.Month + 1)">Tháng sau →</a>
+</div>
+
+<!-- ===== Lịch dạng bảng ===== -->
+<div class="table-wrap">
+    <table class="todo-calendar">
+        <thead>
+            <tr>
+                @foreach (var w in weekdayNames)
+        {
+                <th>@w</th>
+        }
+            </tr>
+        </thead>
+        <tbody>
+            @for (int week = 0; week < 6; week++)
+      {
+            <tr>
+                @for (int d = 0; d < 7; d++)
+            {
+                var cell = Model.Days[week * 7 + d];
+                <td class="@(!cell.IsCurrentMonth ? "is-outside" : "") @(cell.IsToday ? "is-today" : "")">
+                    <div class="todo-daynum">@cell.Date.Day</div>
+                    <div class="todo-items" data-day="@cell.Date.ToString("yyyy-MM-dd")">
+                        @foreach (var item in cell.Items)
+                    {
+                        <div class="todo-item is-priority-@item.Priority.ToString().ToLower() @(item.IsCompleted ? "is-done" : "")" data-id="@item.Id">
+                            <label>
+                                <input type="checkbox" class="todo-check" data-id="@item.Id" @(item.IsCompleted ? "checked" : "")>
+                                <span class="todo-item__title" title="@item.Note">@item.Title</span>
+                            </label>
+                            <form asp-action="Delete" method="post" style="display:inline;">
+                                <input type="hidden" name="id" value="@item.Id">
+                                <input type="hidden" name="year" value="@Model.Year">
+                                <input type="hidden" name="month" value="@Model.Month">
+                                <button type="submit" class="todo-item__del" title="Xoá">×</button>
+                            </form>
+                        </div>
+                    }
+                    </div>
+                </td>
+            }
+            </tr>
+      }
+        </tbody>
+    </table>
+</div>
+
+<form id="toggleAfForm" style="display:none;">@Html.AntiForgeryToken()</form>
+
+<style>
+    .todo-calendar {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+
+        .todo-calendar th {
+            font-family: var(--font-mono);
+            font-size: .68rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--ink-soft);
+            border: 1px solid var(--rule);
+            background: var(--paper);
+            padding: 8px 4px;
+        }
+
+        .todo-calendar td {
+            border: 1px solid var(--rule);
+            vertical-align: top;
+            height: 108px;
+            padding: 6px;
+            background: var(--paper-raised);
+        }
+
+            .todo-calendar td.is-outside {
+                background: var(--paper);
+            }
+
+                .todo-calendar td.is-outside .todo-daynum {
+                    color: var(--ink-faint);
+                }
+
+            .todo-calendar td.is-today {
+                box-shadow: inset 0 0 0 2px var(--seal);
+            }
+
+    .todo-daynum {
+        font-family: var(--font-mono);
+        font-size: .74rem;
+        font-weight: 600;
+        color: var(--ink-soft);
+        margin-bottom: 4px;
+    }
+
+    .todo-items {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        max-height: 76px;
+        overflow-y: auto;
+    }
+
+    .todo-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+        font-size: .72rem;
+        border-left: 3px solid transparent;
+        padding-left: 4px;
+    }
+
+        .todo-item.is-priority-high {
+            border-left-color: var(--seal);
+        }
+
+        .todo-item.is-priority-medium {
+            border-left-color: #C9A227;
+        }
+
+        .todo-item.is-priority-low {
+            border-left-color: var(--ink-faint);
+        }
+
+        .todo-item label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .todo-item input[type="checkbox"] {
+            accent-color: var(--seal);
+            flex-shrink: 0;
+        }
+
+    .todo-item__title {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .todo-item.is-done .todo-item__title {
+        text-decoration: line-through;
+        color: var(--ink-faint);
+    }
+
+    .todo-item__del {
+        background: none;
+        border: none;
+        color: var(--ink-faint);
+        cursor: pointer;
+        font-size: .85rem;
+        line-height: 1;
+        padding: 0 2px;
+        flex-shrink: 0;
+    }
+
+        .todo-item__del:hover {
+            color: var(--error);
+        }
+
+    @@media (max-width: 780px) {
+        .todo-calendar th, .todo-calendar td {
+            font-size: .68rem;
+        }
+
+        .todo-calendar td {
+            height: 84px;
+        }
+    }
+</style>
+
+@section Scripts {
+    <script>
+  const token = document.querySelector('#toggleAfForm input[name="__RequestVerificationToken"]').value;
+
+  document.querySelectorAll('.todo-check').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const id = cb.dataset.id;
+      const row = cb.closest('.todo-item');
+      try {
+        const res = await fetch('@Url.Action("ToggleComplete", "Todo")?id=' + encodeURIComponent(id), {
+          method: 'POST',
+          headers: { 'X-CSRF-TOKEN': token }
+        });
+        const data = await res.json();
+        row.classList.toggle('is-done', data.isCompleted);
+      } catch {
+        cb.checked = !cb.checked; // rollback nếu lỗi mạng
+      }
+    });
+  });
+    </script>
+}

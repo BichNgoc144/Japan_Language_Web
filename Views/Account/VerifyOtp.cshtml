@@ -1,0 +1,32 @@
+@model VerifyOtpViewModel
+@{
+    ViewData["Title"] = "Xác thực OTP";
+}
+
+<div class="card">
+    <p class="card__eyebrow">巻 02 — Đăng ký · Bước 2/3</p>
+    <h1 class="card__title">Nhập mã xác thực</h1>
+    <p class="card__subtitle">Mã OTP gồm 6 số vừa được gửi tới <strong>@Model.Email</strong>. Mã có hiệu lực trong 5 phút.</p>
+
+    <div asp-validation-summary="All" class="alert alert--error" style="display:@(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <form asp-action="VerifyOtp" method="post" novalidate>
+        <input type="hidden" asp-for="Email">
+        <div class="field">
+            <label>Mã OTP</label>
+            <input asp-for="OtpCode" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"
+                   style="width:100%;height:52px;letter-spacing:10px;font-family:var(--font-mono);font-size:1.2rem;">
+            <span asp-validation-for="OtpCode"></span>
+        </div>
+        <button type="submit" class="btn btn--primary">Xác thực</button>
+    </form>
+
+    <form asp-action="ResendOtp" method="post" style="margin-top:16px;">
+        <input type="hidden" name="email" value="@Model.Email">
+        <p class="foot-note" style="margin-top:0;">Không nhận được mã? <button type="submit" class="link-btn" style="font-size:inherit;">Gửi lại OTP</button></p>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

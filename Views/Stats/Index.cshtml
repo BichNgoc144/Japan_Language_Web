@@ -1,0 +1,58 @@
+@model StatsViewModel
+@{
+    ViewData["Title"] = "Thống kê học tập";
+    ViewData["WideLayout"] = true;
+}
+
+<p class="card__eyebrow">巻 08 — Thống kê</p>
+<h1 style="font-family:var(--font-display);font-size:1.9rem;font-weight:800;margin:0 0 24px;">Tiến độ học tập</h1>
+
+<div class="summary-row" style="margin-bottom:22px;">
+    <div class="summary-stat"><b>@Model.CurrentLevel</b><span>Level hiện tại</span></div>
+    <div class="summary-stat"><b>@Model.WordsToday</b><span>Từ học hôm nay</span></div>
+    <div class="summary-stat"><b>@Model.WordsTotal</b><span>Tổng từ đã học</span></div>
+    <div class="summary-stat"><b>@Model.LessonsPassed</b><span>Bài đã qua</span></div>
+</div>
+
+<div style="background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:26px;">
+    <h2 style="font-family:var(--font-display);font-size:1.1rem;margin:0 0 4px;">Số từ học mỗi ngày</h2>
+    <p style="font-size:.82rem;color:var(--ink-soft);margin:0 0 18px;">30 ngày gần nhất. Tính theo các bài đã hoàn thành lần đầu trong ngày.</p>
+    <canvas id="dailyChart" height="90"></canvas>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+  const series = @Json.Serialize(Model.DailySeries);
+
+  const ctx = document.getElementById('dailyChart').getContext('2d');
+  const inkColor = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim();
+  const sealColor = getComputedStyle(document.documentElement).getPropertyValue('--seal').trim();
+  const ruleColor = getComputedStyle(document.documentElement).getPropertyValue('--rule').trim();
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: series.map(s => s.date),
+      datasets: [{
+        label: 'Số từ học',
+        data: series.map(s => s.count),
+        borderColor: sealColor,
+        backgroundColor: sealColor + '33',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 2,
+        pointBackgroundColor: sealColor
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: ruleColor }, ticks: { color: inkColor, maxTicksLimit: 10, font: { family: 'Inter' } } },
+        y: { beginAtZero: true, ticks: { precision: 0, color: inkColor, font: { family: 'Inter' } }, grid: { color: ruleColor } }
+      }
+    }
+  });
+    </script>
+}

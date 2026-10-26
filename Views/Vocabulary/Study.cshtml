@@ -1,0 +1,198 @@
+@model LessonStudyViewModel
+@{
+    ViewData["Title"] = $"Bài {Model.LessonNumber} — {Model.VocaLevel}";
+}
+
+<p class="card__eyebrow">巻 07 — @Model.VocaLevel · Bài @Model.LessonNumber</p>
+<h1 style="font-family:var(--font-display);font-size:1.7rem;font-weight:800;margin:0 0 6px;">Học từ vựng</h1>
+<p style="font-size:.94rem;color:var(--ink-soft);margin:0 0 26px;">Bấm vào thẻ để lật xem nghĩa. Chọn "Chưa biết" để từ đó lặp lại.</p>
+
+<div class="flashcard-wrap">
+
+    <!-- ===== Đang học ===== -->
+    <div id="studyPanel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <span class="badge" id="fProgress">0 / 0</span>
+            <span class="badge" id="fKnown">Đã biết: 0</span>
+        </div>
+
+        <div class="flashcard" id="flashcard">
+            <div class="flashcard__inner">
+                <div class="flashcard__face">
+                    <div class="flash-hira" id="fHira">あ</div>
+                    <div class="flash-kanji" id="fKanji">日</div>
+                    <p class="hint" style="margin-top:14px;">Bấm để xem nghĩa</p>
+                </div>
+                <div class="flashcard__face flashcard__face--back">
+                    <div class="flash-meaning" id="fMeaning">Nghĩa</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:20px;">
+            <button type="button" class="btn btn--dontknow" id="dontKnowBtn">✕ Chưa biết</button>
+            <button type="button" class="btn btn--know" id="knowBtn">✓ Đã biết</button>
+        </div>
+    </div>
+
+    <!-- ===== Hoàn thành ===== -->
+    <div id="completePanel" style="display:none;text-align:center;background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:40px 30px;">
+        <p class="card__eyebrow" style="justify-content:center;">Hoàn thành</p>
+        <h2 style="font-family:var(--font-display);font-size:1.4rem;margin:0 0 8px;">Bạn đã học xong @Model.Words.Count từ!</h2>
+        <p style="font-size:.9rem;color:var(--ink-soft);margin:0 0 24px;">Giờ hãy vào bài kiểm tra để xem bạn nhớ được bao nhiêu.</p>
+        <div class="btn-stack" style="max-width:280px;margin:0 auto;">
+            <a asp-controller="Vocabulary" asp-action="Quiz" asp-route-level="@Model.VocaLevel" asp-route-number="@Model.LessonNumber" class="btn btn--primary">Vào bài kiểm tra</a>
+            <button type="button" class="btn btn--ghost" id="restartBtn">Học lại từ đầu</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .flashcard-wrap {
+        max-width: 420px;
+        margin: 0 auto;
+    }
+
+    .flashcard {
+        height: 260px;
+        perspective: 1200px;
+        cursor: pointer;
+    }
+
+    .flashcard__inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transition: transform .5s;
+        transform-style: preserve-3d;
+    }
+
+    .flashcard.is-flipped .flashcard__inner {
+        transform: rotateY(180deg);
+    }
+
+    .flashcard__face {
+        position: absolute;
+        inset: 0;
+        backface-visibility: hidden;
+        border-radius: var(--radius);
+        border: 1px solid var(--rule);
+        background: var(--paper-raised);
+        box-shadow: var(--shadow-card);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .flashcard__face--back {
+        transform: rotateY(180deg);
+        background: var(--seal-tint);
+    }
+
+    .flash-hira {
+        font-family: var(--font-display);
+        font-size: 2.6rem;
+        color: var(--ink);
+    }
+
+    .flash-kanji {
+        font-family: var(--font-body);
+        font-size: 1.1rem;
+        color: var(--ink-soft);
+        margin-top: 8px;
+    }
+
+    .flash-meaning {
+        font-family: var(--font-display);
+        font-size: 1.6rem;
+        color: var(--ink);
+    }
+
+    .btn--know {
+        background: var(--success);
+        color: #fff;
+    }
+
+        .btn--know:hover {
+            opacity: .9;
+        }
+
+    .btn--dontknow {
+        background: transparent;
+        color: var(--error);
+        border: 1px solid var(--error-tint);
+    }
+
+        .btn--dontknow:hover {
+            background: var(--error-tint);
+        }
+</style>
+
+@section Scripts {
+    <script>
+  const words = @Json.Serialize(Model.Words);
+
+  (function () {
+    const studyPanel = document.getElementById('studyPanel');
+    const completePanel = document.getElementById('completePanel');
+    const card = document.getElementById('flashcard');
+    const hiraEl = document.getElementById('fHira');
+    const kanjiEl = document.getElementById('fKanji');
+    const meaningEl = document.getElementById('fMeaning');
+    const progressEl = document.getElementById('fProgress');
+    const knownEl = document.getElementById('fKnown');
+
+    let queue = [], current = null, knownCount = 0, totalCount = words.length;
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function start() {
+      queue = shuffle(words.slice());
+      knownCount = 0;
+      studyPanel.style.display = 'block';
+      completePanel.style.display = 'none';
+      showNext();
+    }
+
+    function showNext() {
+      if (queue.length === 0) {
+        studyPanel.style.display = 'none';
+        completePanel.style.display = 'block';
+        return;
+      }
+      current = queue.shift();
+      card.classList.remove('is-flipped');
+      hiraEl.textContent = current.hiraKana || '';
+      kanjiEl.textContent = current.kanji || '';
+      meaningEl.textContent = current.meaningVn || '';
+      progressEl.textContent = (totalCount - queue.length) + ' / ' + totalCount;
+      knownEl.textContent = 'Đã biết: ' + knownCount;
+    }
+
+    card.addEventListener('click', () => card.classList.toggle('is-flipped'));
+
+    document.getElementById('knowBtn').addEventListener('click', () => {
+      knownCount++;
+      showNext();
+    });
+
+    document.getElementById('dontKnowBtn').addEventListener('click', () => {
+      queue.push(current); // đẩy xuống cuối hàng đợi để lặp lại trong buổi học này
+      showNext();
+    });
+
+    document.getElementById('restartBtn').addEventListener('click', start);
+
+    start();
+  })();
+    </script>
+}

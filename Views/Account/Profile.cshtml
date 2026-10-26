@@ -1,0 +1,79 @@
+@model EditProfileViewModel
+@{
+    ViewData["Title"] = "Hồ sơ";
+}
+
+<div class="card card--wide">
+    <p class="card__eyebrow">巻 05 — Hồ sơ</p>
+    <h1 class="card__title">Thông tin tài khoản</h1>
+
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;flex-wrap:wrap;">
+        <div>
+            <p style="font-family:var(--font-display);font-size:1.2rem;font-weight:700;margin:0 0 4px;">@ViewData["Username"]</p>
+            <p style="font-size:.86rem;color:var(--ink-soft);margin:0 0 8px;">@ViewData["Email"]</p>
+            <span class="badge">LEVEL @ViewData["Level"]</span>
+            <span class="badge">@ViewData["Point"] điểm</span>
+        </div>
+    </div>
+
+    <div asp-validation-summary="All" class="alert alert--error" style="display:@(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <form asp-action="Profile" method="post" novalidate>
+        <div class="grid-2">
+            <div class="field">
+                <label asp-for="FullName"></label>
+                <input asp-for="FullName">
+                <span asp-validation-for="FullName"></span>
+            </div>
+            <div class="field">
+                <label asp-for="DateOfBirth"></label>
+                <input asp-for="DateOfBirth" type="date">
+                <span asp-validation-for="DateOfBirth"></span>
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="field">
+                <label asp-for="Gender"></label>
+                <select asp-for="Gender">
+                    <option value="">— Không chọn —</option>
+                    <option value="Male">Nam</option>
+                    <option value="Female">Nữ</option>
+                    <option value="Other">Khác</option>
+                </select>
+            </div>
+            <div class="field">
+                <label asp-for="Phone"></label>
+                <input asp-for="Phone" type="tel" placeholder="0901234567">
+                <span asp-validation-for="Phone"></span>
+            </div>
+        </div>
+        <div class="field">
+            <label asp-for="Address"></label>
+            <input asp-for="Address">
+        </div>
+        <div class="grid-2">
+            <div class="field">
+                <label asp-for="University"></label>
+                <input asp-for="University">
+            </div>
+            <div class="field">
+                <label asp-for="Major"></label>
+                <input asp-for="Major">
+            </div>
+        </div>
+        <div class="field">
+            <label asp-for="Bio"></label>
+            <textarea asp-for="Bio" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn btn--primary">Lưu thay đổi</button>
+    </form>
+
+    <hr class="section-divider">
+    <div class="btn-stack">
+        <a asp-action="ChangePassword" class="btn btn--ghost">Đổi mật khẩu</a>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

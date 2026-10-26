@@ -1,0 +1,35 @@
+@model LoginViewModel
+@{
+    ViewData["Title"] = "Đăng nhập";
+}
+
+<div class="card">
+    <p class="card__eyebrow">巻 01 — Đăng nhập</p>
+    <h1 class="card__title">Chào bạn quay lại</h1>
+    <p class="card__subtitle">Đăng nhập LearnJP để tiếp tục hành trình học tiếng Nhật.</p>
+
+    <div asp-validation-summary="All" class="alert alert--error" style="display:@(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <form asp-action="Login" asp-route-returnUrl="@Context.Request.Query["returnUrl"]" method="post" novalidate>
+        <div class="field">
+            <label asp-for="Email"></label>
+            <input asp-for="Email" type="email" autocomplete="email" placeholder="ban@vidu.com">
+            <span asp-validation-for="Email"></span>
+        </div>
+        <div class="field">
+            <label asp-for="Password"></label>
+            <input asp-for="Password" type="password" autocomplete="current-password">
+            <span asp-validation-for="Password"></span>
+        </div>
+        <div class="remember-row">
+            <label class="checkbox-row"><input asp-for="RememberMe" type="checkbox"> Ghi nhớ đăng nhập</label>
+            <a asp-action="ForgotPassword" class="link-btn" style="font-size:.82rem;">Quên mật khẩu?</a>
+        </div>
+        <button type="submit" class="btn btn--primary">Đăng nhập</button>
+    </form>
+    <p class="foot-note">Chưa có tài khoản? <a asp-action="Register">Đăng ký ngay</a></p>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

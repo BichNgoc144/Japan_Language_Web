@@ -1,0 +1,16 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\Controllers",
+    "\\Views",
+    "\\Views\\Home",
+    "\\Views\\Kana",
+    "\\Views\\Review",
+    "\\Views\\Shared",
+    "\\Views\\Stats",
+    "\\Views\\Todo",
+    "\\Views\\Vocabulary"
+  ],
+  "SelectedNode": "\\Controllers\\AccountController.cs",
+  "PreviewInSolutionExplorer": false
+}

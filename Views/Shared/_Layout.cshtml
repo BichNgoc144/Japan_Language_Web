@@ -1,0 +1,802 @@
+@using System.Security.Claims
+@using Microsoft.EntityFrameworkCore
+@using LearnJP.Models
+@inject AppDbContext Db
+@{
+    var isAuthed = User.Identity?.IsAuthenticated == true;
+
+    List<LessonBoxDto> n5Lessons = new();
+    List<LessonBoxDto> n4Lessons = new();
+    var n4Unlocked = false;
+
+    if (isAuthed)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var userLearn = await Db.UserLearns.FirstOrDefaultAsync(l => l.UserId == userId);
+        n4Unlocked = LessonHelper.IsN4Unlocked(userLearn?.Level ?? 0);
+
+        var passedN5 = (await Db.LessonProgresses
+            .Where(p => p.UserId == userId && p.VocaLevel == VocaLevel.N5 && p.IsPassed)
+            .Select(p => p.LessonNumber).ToListAsync()).ToHashSet();
+        var passedN4 = (await Db.LessonProgresses
+            .Where(p => p.UserId == userId && p.VocaLevel == VocaLevel.N4 && p.IsPassed)
+            .Select(p => p.LessonNumber).ToListAsync()).ToHashSet();
+
+        for (int i = 1; i <= LessonHelper.TotalLessons; i++)
+        {
+            n5Lessons.Add(new LessonBoxDto { LessonNumber = i, IsPassed = passedN5.Contains(i), IsUnlocked = LessonHelper.IsLessonUnlocked(i, passedN5) });
+            n4Lessons.Add(new LessonBoxDto { LessonNumber = i, IsPassed = passedN4.Contains(i), IsUnlocked = n4Unlocked && LessonHelper.IsLessonUnlocked(i, passedN4) });
+        }
+    }
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] — LearnJP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <style>
+        /* ===== LearnJP — genkouyoushi (giấy kẻ ô bản thảo) + con dấu hanko ===== */
+        :root {
+            --paper: #F5F0E1;
+            --paper-raised: #FBF8EF;
+            --ink: #22201B;
+            --ink-soft: #625C4B;
+            --ink-faint: #9A927B;
+            --grid-line: rgba(34,32,27,0.09);
+            --rule: #C9BFA2;
+            --seal: #B5342A;
+            --seal-dark: #8C2A21;
+            --seal-tint: #F1DAD3;
+            --success: #3E6B4F;
+            --success-tint: #DEEAE0;
+            --error: #93362A;
+            --error-tint: #F3DCD6;
+            --font-display: 'Shippori Mincho', serif;
+            --font-body: 'Inter', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --radius: 3px;
+            --shadow-card: 0 1px 2px rgba(34,32,27,.06), 0 12px 32px -12px rgba(34,32,27,.22);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: var(--font-body);
+            color: var(--ink);
+            background-color: var(--paper);
+            background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 28px 28px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .site-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px clamp(20px,5vw,56px);
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--ink);
+        }
+
+        .brand__word {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1.3rem;
+        }
+
+        .hanko svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .hanko circle {
+            fill: var(--seal);
+        }
+
+        .hanko text {
+            font-family: var(--font-display);
+            font-size: 46px;
+            fill: var(--paper-raised);
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+
+        .hanko--sm {
+            width: 34px;
+            height: 34px;
+        }
+
+        .site-nav {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+            .site-nav a, .site-nav button {
+                font-size: .92rem;
+                font-weight: 600;
+                color: var(--ink-soft);
+                background: none;
+                border: none;
+                cursor: pointer;
+                text-decoration: none;
+                padding: 0;
+                font-family: var(--font-body);
+            }
+
+                .site-nav a:hover, .site-nav button:hover {
+                    color: var(--seal);
+                }
+
+            .site-nav .level-badge {
+                font-family: var(--font-mono);
+                font-size: .72rem;
+                font-weight: 600;
+                background: var(--paper-raised);
+                border: 1px solid var(--rule);
+                color: var(--ink-soft);
+                padding: 4px 9px;
+                border-radius: 20px;
+            }
+
+        .site-footer {
+            margin-top: auto;
+            text-align: center;
+            padding: 22px 16px 30px;
+            font-family: var(--font-display);
+            font-size: .85rem;
+            color: var(--ink-faint);
+        }
+
+        .app {
+            flex: 1;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: clamp(28px,6vh,72px) 18px;
+        }
+
+        .body-row {
+            flex: 1;
+            display: flex;
+            align-items: stretch;
+        }
+
+        .sidebar {
+            width: 232px;
+            flex-shrink: 0;
+            background: var(--paper-raised);
+            border-right: 1px solid var(--rule);
+            padding: 28px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sidebar__link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: var(--radius);
+            color: var(--ink-soft);
+            text-decoration: none;
+            font-size: .9rem;
+            font-weight: 600;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            font-family: var(--font-body);
+        }
+
+            .sidebar__link:hover {
+                background: var(--paper);
+                color: var(--ink);
+            }
+
+            .sidebar__link.is-active {
+                background: var(--seal-tint);
+                color: var(--seal-dark);
+            }
+
+            .sidebar__link .icon {
+                width: 18px;
+                text-align: center;
+                flex-shrink: 0;
+            }
+
+        .sidebar__divider {
+            border: none;
+            border-top: 1px dashed var(--rule);
+            margin: 10px 6px;
+        }
+
+        .lesson-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: var(--radius);
+            color: var(--ink-soft);
+            font-size: .9rem;
+            font-weight: 600;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            font-family: var(--font-body);
+        }
+
+            .lesson-toggle:hover {
+                background: var(--paper);
+                color: var(--ink);
+            }
+
+            .lesson-toggle .chevron {
+                transition: transform 150ms ease;
+                font-size: .7rem;
+            }
+
+            .lesson-toggle[aria-expanded="true"] .chevron {
+                transform: rotate(180deg);
+            }
+
+            .lesson-toggle:disabled {
+                opacity: .45;
+                cursor: not-allowed;
+            }
+
+        .lesson-dropdown {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            padding: 6px 6px 6px 14px;
+            max-height: 340px;
+            overflow-y: auto;
+        }
+
+            .lesson-dropdown.is-open {
+                display: flex;
+            }
+
+        .lesson-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            background: var(--paper);
+            border: 1px solid var(--rule);
+            border-radius: var(--radius);
+            padding: 6px 8px;
+            font-size: .78rem;
+        }
+
+            .lesson-box.is-locked {
+                opacity: .5;
+            }
+
+            .lesson-box.is-passed {
+                border-color: var(--success);
+            }
+
+        .lesson-box__name {
+            font-weight: 600;
+            color: var(--ink);
+            white-space: nowrap;
+        }
+
+        .lesson-box__actions {
+            display: flex;
+            gap: 4px;
+        }
+
+            .lesson-box__actions a {
+                font-size: .68rem;
+                font-weight: 700;
+                padding: 3px 7px;
+                border-radius: 20px;
+                text-decoration: none;
+                background: var(--paper-raised);
+                border: 1px solid var(--rule);
+                color: var(--ink-soft);
+            }
+
+                .lesson-box__actions a:hover {
+                    border-color: var(--seal);
+                    color: var(--seal);
+                }
+
+                .lesson-box__actions a.is-disabled {
+                    pointer-events: none;
+                    opacity: .4;
+                }
+
+        @@media (max-width: 780px) {
+            .body-row {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                flex-direction: row;
+                overflow-x: auto;
+                border-right: none;
+                border-bottom: 1px solid var(--rule);
+                padding: 12px 16px;
+                gap: 6px;
+            }
+
+            .sidebar__link {
+                white-space: nowrap;
+            }
+        }
+
+        .card {
+            position: relative;
+            width: 100%;
+            max-width: 420px;
+            background: var(--paper-raised);
+            border: 1px solid var(--rule);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-card);
+            padding: 40px 34px 34px;
+        }
+
+            .card::before {
+                content: "";
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 4px;
+                background: var(--seal);
+            }
+
+        .card--wide {
+            max-width: 560px;
+        }
+
+        .card__eyebrow {
+            font-family: var(--font-mono);
+            font-size: .72rem;
+            font-weight: 600;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--seal);
+            margin: 0 0 8px;
+        }
+
+        .card__title {
+            font-family: var(--font-display);
+            font-size: 1.7rem;
+            font-weight: 700;
+            margin: 0 0 8px;
+            line-height: 1.25;
+        }
+
+        .card__subtitle {
+            font-size: .92rem;
+            color: var(--ink-soft);
+            line-height: 1.55;
+            margin: 0 0 26px;
+        }
+
+        .field {
+            margin-bottom: 18px;
+        }
+
+            .field label {
+                display: block;
+                font-size: .8rem;
+                font-weight: 600;
+                color: var(--ink-soft);
+                margin-bottom: 7px;
+            }
+
+            .field .hint {
+                display: block;
+                font-size: .76rem;
+                color: var(--ink-faint);
+                margin-top: 6px;
+            }
+
+        input[type=text], input[type=email], input[type=password], input[type=tel], input[type=date], textarea, select {
+            width: 100%;
+            font-family: var(--font-body);
+            font-size: .96rem;
+            color: var(--ink);
+            background: #fff;
+            border: 1px solid var(--rule);
+            border-radius: var(--radius);
+            padding: 11px 13px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 90px;
+        }
+
+            input:focus-visible, textarea:focus-visible, select:focus-visible {
+                outline: none;
+                border-color: var(--seal);
+                box-shadow: 0 0 0 3px var(--seal-tint);
+            }
+
+        .otp-group {
+            display: flex;
+            gap: 8px;
+            justify-content: space-between;
+        }
+
+            .otp-group input {
+                width: 44px;
+                height: 52px;
+                text-align: center;
+                font-family: var(--font-mono);
+                font-size: 1.2rem;
+                font-weight: 600;
+                padding: 0;
+            }
+
+        .suggest-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--paper);
+            border: 1px dashed var(--rule);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            margin-bottom: 18px;
+        }
+
+            .suggest-row code {
+                flex: 1;
+                font-family: var(--font-mono);
+                font-size: .86rem;
+                overflow-wrap: anywhere;
+            }
+
+        .link-btn {
+            background: none;
+            border: none;
+            color: var(--seal);
+            font-weight: 600;
+            font-size: .82rem;
+            cursor: pointer;
+            padding: 0;
+        }
+
+            .link-btn:hover {
+                text-decoration: underline;
+            }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            font-family: var(--font-body);
+            font-size: .96rem;
+            font-weight: 700;
+            border-radius: var(--radius);
+            border: 1px solid transparent;
+            padding: 12px 18px;
+            cursor: pointer;
+        }
+
+        .btn--primary {
+            background: var(--ink);
+            color: var(--paper-raised);
+        }
+
+            .btn--primary:hover {
+                background: var(--seal-dark);
+            }
+
+        .btn--ghost {
+            background: transparent;
+            color: var(--ink);
+            border-color: var(--rule);
+        }
+
+            .btn--ghost:hover {
+                border-color: var(--ink);
+            }
+
+        .btn-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .alert {
+            border-radius: var(--radius);
+            padding: 12px 14px;
+            font-size: .86rem;
+            line-height: 1.5;
+            margin-bottom: 18px;
+        }
+
+        .alert--error {
+            background: var(--error-tint);
+            color: var(--error);
+            border: 1px solid rgba(147,54,42,.25);
+        }
+
+        .alert--success {
+            background: var(--success-tint);
+            color: var(--success);
+            border: 1px solid rgba(62,107,79,.25);
+        }
+
+        .field-validation-error, .text-danger {
+            color: var(--error);
+            font-size: .78rem;
+            display: block;
+            margin-top: 6px;
+        }
+
+        .input-validation-error {
+            border-color: var(--error) !important;
+        }
+
+        .remember-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: -6px 0 22px;
+            font-size: .86rem;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--ink-soft);
+        }
+
+            .checkbox-row input {
+                accent-color: var(--seal);
+                width: 15px;
+                height: 15px;
+            }
+
+        .foot-note {
+            text-align: center;
+            font-size: .86rem;
+            color: var(--ink-soft);
+            margin-top: 22px;
+        }
+
+            .foot-note a {
+                color: var(--seal);
+                font-weight: 600;
+                text-decoration: none;
+            }
+
+                .foot-note a:hover {
+                    text-decoration: underline;
+                }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 16px;
+        }
+
+        @@media (max-width: 480px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section-divider {
+            border: none;
+            border-top: 1px dashed var(--rule);
+            margin: 26px 0 22px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-mono);
+            font-size: .72rem;
+            font-weight: 600;
+            background: var(--paper);
+            border: 1px solid var(--rule);
+            color: var(--ink-soft);
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        .summary-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .summary-stat {
+            background: var(--paper-raised);
+            border: 1px solid var(--rule);
+            border-radius: var(--radius);
+            padding: 16px 14px;
+            text-align: center;
+        }
+
+            .summary-stat b {
+                display: block;
+                font-family: var(--font-display);
+                font-size: 1.6rem;
+                color: var(--ink);
+            }
+
+            .summary-stat span {
+                font-size: .74rem;
+                color: var(--ink-soft);
+                text-transform: uppercase;
+                letter-spacing: .04em;
+            }
+
+        @@media (max-width: 700px) {
+            .summary-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @@media (max-width: 420px) {
+            .card {
+                padding: 30px 20px 26px;
+            }
+
+            .otp-group input {
+                width: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="site-header">
+        <a asp-controller="Home" asp-action="Index" class="brand">
+            <span class="hanko hanko--sm" aria-hidden="true"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" /><text x="50" y="64">語</text></svg></span>
+            <span class="brand__word">LearnJP</span>
+        </a>
+        <nav class="site-nav">
+            @if (isAuthed)
+    {
+            <a asp-controller="Account" asp-action="Profile">Hồ sơ</a>
+            <form asp-controller="Account" asp-action="Logout" method="post" style="display:inline">
+                <button type="submit">Đăng xuất</button>
+            </form>
+    }
+    else
+    {
+            <a asp-controller="Account" asp-action="Login">Đăng nhập</a>
+            <a asp-controller="Account" asp-action="Register">Đăng ký</a>
+    }
+        </nav>
+    </header>
+
+    <div class="body-row">
+        @if (isAuthed)
+  {
+      var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+        <aside class="sidebar">
+            <a asp-controller="Account" asp-action="Profile" class="sidebar__link @(currentController == "Account" && ViewContext.RouteData.Values["action"]?.ToString() == "Profile" ? "is-active" : "")">
+                <span class="icon">👤</span> Hồ sơ
+            </a>
+            <a asp-controller="Stats" asp-action="Index" class="sidebar__link @(currentController == "Stats" ? "is-active" : "")">
+                <span class="icon">📊</span> Thống kê
+            </a>
+            <a asp-controller="Review" asp-action="Index" class="sidebar__link @(currentController == "Review" ? "is-active" : "")">
+                <span class="icon">📝</span> Ôn tập
+            </a>
+            <a asp-controller="Kana" asp-action="Index" class="sidebar__link @(currentController == "Kana" ? "is-active" : "")">
+                <span class="icon">あ</span> Học bảng chữ cái
+            </a>
+            <a asp-controller="Todo" asp-action="Index" class="sidebar__link @(currentController == "Todo" ? "is-active" : "")">
+                <span class="icon">📋</span> Bảng việc cần làm
+            </a>
+
+            <button type="button" class="lesson-toggle" aria-expanded="false" onclick="toggleLessonDropdown('n5')">
+                <span>📘 N5 (@n5Lessons.Count(l => l.IsPassed)/@LessonHelper.TotalLessons)</span>
+                <span class="chevron">▾</span>
+            </button>
+            <div id="lessonDropdown-n5" class="lesson-dropdown">
+                @foreach (var lesson in n5Lessons)
+          {
+                <div class="lesson-box @(lesson.IsPassed ? "is-passed" : !lesson.IsUnlocked ? "is-locked" : "")">
+                    <span class="lesson-box__name">@(lesson.IsPassed ? "✅" : !lesson.IsUnlocked ? "🔒" : "") Bài @lesson.LessonNumber</span>
+                    <span class="lesson-box__actions">
+                        <a class="@(!lesson.IsUnlocked ? "is-disabled" : "")" asp-controller="Vocabulary" asp-action="Study" asp-route-level="N5" asp-route-number="@lesson.LessonNumber">Học</a>
+                        <a class="@(!lesson.IsUnlocked ? "is-disabled" : "")" asp-controller="Vocabulary" asp-action="Quiz" asp-route-level="N5" asp-route-number="@lesson.LessonNumber">Kiểm tra</a>
+                    </span>
+                </div>
+          }
+            </div>
+
+            <button type="button" class="lesson-toggle" aria-expanded="false" @(!n4Unlocked ? "disabled title=\"Hoàn thành hết N5 để mở khoá\"" : "") onclick="toggleLessonDropdown('n4')">
+                <span>📗 N4 @(n4Unlocked ? $"({n4Lessons.Count(l => l.IsPassed)}/{LessonHelper.TotalLessons})" : "🔒")</span>
+                <span class="chevron">▾</span>
+            </button>
+            @if (n4Unlocked)
+        {
+            <div id="lessonDropdown-n4" class="lesson-dropdown">
+                @foreach (var lesson in n4Lessons)
+              {
+                <div class="lesson-box @(lesson.IsPassed ? "is-passed" : !lesson.IsUnlocked ? "is-locked" : "")">
+                    <span class="lesson-box__name">@(lesson.IsPassed ? "✅" : !lesson.IsUnlocked ? "🔒" : "") Bài @lesson.LessonNumber</span>
+                    <span class="lesson-box__actions">
+                        <a class="@(!lesson.IsUnlocked ? "is-disabled" : "")" asp-controller="Vocabulary" asp-action="Study" asp-route-level="N4" asp-route-number="@lesson.LessonNumber">Học</a>
+                        <a class="@(!lesson.IsUnlocked ? "is-disabled" : "")" asp-controller="Vocabulary" asp-action="Quiz" asp-route-level="N4" asp-route-number="@lesson.LessonNumber">Kiểm tra</a>
+                    </span>
+                </div>
+              }
+            </div>
+        }
+
+            <a asp-controller="Account" asp-action="ChangePassword" class="sidebar__link @(currentController == "Account" && ViewContext.RouteData.Values["action"]?.ToString() == "ChangePassword" ? "is-active" : "")">
+                <span class="icon">🔒</span> Đổi mật khẩu
+            </a>
+            <hr class="sidebar__divider">
+            <form asp-controller="Account" asp-action="Logout" method="post">
+                <button type="submit" class="sidebar__link"><span class="icon">↩</span> Đăng xuất</button>
+            </form>
+        </aside>
+  }
+        <main class="app">
+            <div style="width:100%;max-width:@(ViewData["WideLayout"] is true ? "980px" : "560px");">
+                @if (TempData["Info"] is string info)
+      {
+                <div class="alert alert--success" style="max-width:420px;margin:0 auto 16px;">@info</div>
+      }
+                @if (TempData["Error"] is string err)
+      {
+                <div class="alert alert--error" style="max-width:420px;margin:0 auto 16px;">@err</div>
+      }
+                @RenderBody()
+            </div>
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <span>言葉 — mỗi từ một bước tới thành thạo.</span>
+    </footer>
+
+    @await RenderSectionAsync("Scripts", required: false)
+    <script>
+        function toggleLessonDropdown(key) {
+            const el = document.getElementById('lessonDropdown-' + key);
+            if (!el) return;
+            const btn = el.previousElementSibling;
+            const willOpen = !el.classList.contains('is-open');
+            el.classList.toggle('is-open', willOpen);
+            if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        }
+    </script>
+</body>
+</html>

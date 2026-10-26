@@ -1,0 +1,440 @@
+@model KanaIndexViewModel
+@{
+    ViewData["Title"] = "Học bảng chữ cái";
+    ViewData["WideLayout"] = true;
+
+    // --- HÀM TỰ ĐỘNG PHÂN LOẠI NHÓM CHỮ CÁI ---
+    Func<string, string> getKanaGroup = (romaji) => {
+        if (string.IsNullOrEmpty(romaji)) return "13-Khác";
+        romaji = romaji.ToLower();
+
+        // 1. Âm ghép (Yoon)
+        if ((romaji.Length >= 3 && romaji.Contains("y")) ||
+            romaji == "sha" || romaji == "shu" || romaji == "sho" ||
+            romaji == "cha" || romaji == "chu" || romaji == "cho" ||
+            romaji == "ja"  || romaji == "ju"  || romaji == "jo")
+        {
+            return "12-Âm ghép";
+        }
+
+        // 2. Chữ N đứng 1 mình
+        if (romaji == "n") return "10-Hàng W & n";
+
+        char f = romaji[0];
+
+        // 3. Âm đục & Bán đục (Dakuon)
+        if (f == 'g' || f == 'z' || f == 'd' || f == 'b' || f == 'p' || romaji == "ji") return "11-Âm đục ";
+
+        // 4. Âm cơ bản (Seion)
+        if ("aiueo".Contains(f)) return "01-Nguyên âm ";
+        if (f == 'k') return "02-Hàng K ";
+        if (f == 's' || romaji == "shi") return "03-Hàng S ";
+        if (f == 't' || romaji == "chi" || romaji == "tsu") return "04-Hàng T ";
+        if (f == 'n') return "05-Hàng N ";
+        if (f == 'h' || f == 'f') return "06-Hàng H ";
+        if (f == 'm') return "07-Hàng M ";
+        if (f == 'y') return "08-Hàng Y ";
+        if (f == 'r') return "09-Hàng R ";
+        if (f == 'w') return "10-Hàng W & n";
+
+        return "13-Khác";
+    };
+}
+
+<p class="card__eyebrow">巻 06 — Bảng chữ cái</p>
+<h1 style="font-family:var(--font-display);font-size:1.9rem;font-weight:800;margin:0 0 6px;">Hiragana &amp; Katakana</h1>
+<p style="font-size:.94rem;color:var(--ink-soft);margin:0 0 26px;">Không giới hạn theo Level — luyện bất cứ lúc nào. Bấm vào từng chữ để nghe phát âm.</p>
+
+<div id="lessonSection">
+    <!-- ===== Nút Toggle chuyển đổi 2 bảng ===== -->
+    <div style="display:flex;gap:16px;margin-bottom:24px;">
+        <button id="btnToggleHiragana" class="btn btn--primary" style="flex:1;padding:16px;font-size:1.2rem;font-family:var(--font-display);">Hiragana</button>
+        <button id="btnToggleKatakana" class="btn btn--ghost" style="flex:1;padding:16px;font-size:1.2rem;font-family:var(--font-display);">Katakana</button>
+    </div>
+
+    <div>
+        <!-- ===== Bảng Hiragana ===== -->
+        <div id="tableHiragana" style="background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:22px;display:block;">
+            <h2 style="font-family:var(--font-display);font-size:1.2rem;margin:0 0 20px;">Bảng Hiragana</h2>
+
+            @{
+                // Gom nhóm và sắp xếp lại dữ liệu Hiragana (bỏ List<dynamic> để tránh lỗi CS0019)
+                var groupedHiragana = Model.HiraganaList != null
+                    ? Model.HiraganaList.GroupBy(x => getKanaGroup(x.Romaji)).OrderBy(g => g.Key)
+                    : null;
+            }
+
+            @if (groupedHiragana != null)
+            {
+                foreach (var group in groupedHiragana)
+                {
+                    var groupTitle = group.Key.Substring(3); // Bỏ phần mã số (01-, 02-)
+            <div style="margin-bottom: 24px;">
+                <h3 style="font-size:1rem;color:var(--seal);border-bottom:1px dashed var(--rule);padding-bottom:6px;margin-bottom:12px;">@groupTitle</h3>
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
+                    @foreach (var item in group)
+                            {
+                    <button type="button" class="kana-cell" onclick="speakKana('@item.Character')">
+                        <span class="kana-cell__char">@item.Character</span>
+                        <span class="kana-cell__romaji">@item.Romaji</span>
+                    </button>
+                            }
+                </div>
+            </div>
+                }
+            }
+        </div>
+
+        <!-- ===== Bảng Katakana ===== -->
+        <div id="tableKatakana" style="background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:22px;display:none;">
+            <h2 style="font-family:var(--font-display);font-size:1.2rem;margin:0 0 20px;">Bảng Katakana</h2>
+
+            @{
+                // Gom nhóm và sắp xếp lại dữ liệu Katakana
+                var groupedKatakana = Model.KatakanaList != null
+                    ? Model.KatakanaList.GroupBy(x => getKanaGroup(x.Romaji)).OrderBy(g => g.Key)
+                    : null;
+            }
+
+            @if (groupedKatakana != null)
+            {
+                foreach (var group in groupedKatakana)
+                {
+                    var groupTitle = group.Key.Substring(3);
+            <div style="margin-bottom: 24px;">
+                <h3 style="font-size:1rem;color:var(--seal);border-bottom:1px dashed var(--rule);padding-bottom:6px;margin-bottom:12px;">@groupTitle</h3>
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
+                    @foreach (var item in group)
+                            {
+                    <button type="button" class="kana-cell" onclick="speakKana('@item.Character')">
+                        <span class="kana-cell__char">@item.Character</span>
+                        <span class="kana-cell__romaji">@item.Romaji</span>
+                    </button>
+                            }
+                </div>
+            </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+<!-- ===== Bài kiểm tra (client-side, không lưu DB) ===== -->
+<div style="background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:28px;margin-top:30px;position:relative;">
+    <div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--seal);"></div>
+
+    <!-- Trạng thái 1: Cài đặt -->
+    <div id="quizSettings">
+        <p class="card__eyebrow">Bài kiểm tra</p>
+        <h2 style="font-family:var(--font-display);font-size:1.3rem;margin:0 0 18px;">Kiểm tra trí nhớ của bạn</h2>
+        <div class="grid-2">
+            <div class="field">
+                <label for="quizScope">Bảng chữ cái</label>
+                <select id="quizScope">
+                    <option value="hiragana">Hiragana</option>
+                    <option value="katakana">Katakana</option>
+                    <option value="both">Cả hai</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="quizDuration">Thời gian làm bài</label>
+                <select id="quizDuration">
+                    <option value="5">5 phút</option>
+                    <option value="10" selected>10 phút</option>
+                    <option value="15">15 phút</option>
+                    <option value="30">30 phút</option>
+                </select>
+                <span class="hint">Bài kết thúc sớm nếu bạn trả lời hết trước khi hết giờ.</span>
+            </div>
+        </div>
+        <button type="button" class="btn btn--primary" id="startQuizBtn" style="max-width:260px;">Bắt đầu kiểm tra</button>
+    </div>
+
+    <!-- Trạng thái 2: Đang làm bài -->
+    <div id="quizQuestion" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+            <span class="badge" id="qProgress">0 / 50 đã điền</span>
+            <span class="badge" id="qTimer" style="font-family:var(--font-mono);">10:00</span>
+        </div>
+        <form id="qForm">
+            <div id="qGrid" class="quiz-grid"></div>
+            <div class="btn-stack" style="margin-top:22px;">
+                <button type="submit" class="btn btn--primary" id="finishQuizBtn">Kết thúc bài kiểm tra</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Trạng thái 3: Kết quả -->
+    <div id="quizResult" style="display:none;">
+        <p class="card__eyebrow">Kết quả</p>
+        <h2 style="font-family:var(--font-display);font-size:1.3rem;margin:0 0 4px;"><span id="rScore">0 / 0</span> — <span id="rPct">0%</span></h2>
+        <p id="rMsg" style="font-size:.9rem;color:var(--ink-soft);margin:0 0 20px;"></p>
+        <div class="grid-2" style="margin-bottom:22px;">
+            <p style="display:flex;justify-content:space-between;font-size:.88rem;border-bottom:1px dashed var(--rule);padding:6px 0;">Đúng <b id="rCorrect">0</b></p>
+            <p style="display:flex;justify-content:space-between;font-size:.88rem;border-bottom:1px dashed var(--rule);padding:6px 0;">Sai <b id="rWrong">0</b></p>
+            <p style="display:flex;justify-content:space-between;font-size:.88rem;border-bottom:1px dashed var(--rule);padding:6px 0;">Chưa làm <b id="rSkipped">0</b></p>
+            <p style="display:flex;justify-content:space-between;font-size:.88rem;border-bottom:1px dashed var(--rule);padding:6px 0;">Thời gian <b id="rTime">0:00</b></p>
+        </div>
+        <div class="btn-stack">
+            <button type="button" class="btn btn--primary" id="retryBtn">Làm lại</button>
+            <button type="button" class="btn btn--ghost" id="backBtn">Quay về bảng chữ</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .kana-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        background: var(--paper);
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+        padding: 8px 4px;
+        cursor: pointer;
+        font-family: var(--font-body);
+        transition: all 0.2s ease;
+    }
+
+        .kana-cell:hover {
+            border-color: var(--seal);
+            background: var(--seal-tint);
+        }
+
+    .kana-cell__char {
+        font-family: var(--font-display);
+        font-size: 1.3rem;
+        color: var(--ink);
+    }
+
+    .kana-cell__romaji {
+        font-family: var(--font-mono);
+        font-size: .68rem;
+        color: var(--ink-soft);
+    }
+
+    .quiz-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(84px,1fr));
+        gap: 10px;
+    }
+
+    .quiz-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        background: var(--paper);
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+        padding: 10px 6px;
+    }
+
+    .quiz-cell__char {
+        font-family: var(--font-display);
+        font-size: 1.4rem;
+        color: var(--ink);
+    }
+
+    .quiz-cell__input {
+        width: 100%;
+        text-align: center;
+        padding: 7px 4px;
+        font-family: var(--font-mono);
+        font-size: .82rem;
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+    }
+
+        .quiz-cell__input:focus-visible {
+            outline: none;
+            border-color: var(--seal);
+            box-shadow: 0 0 0 3px var(--seal-tint);
+        }
+
+    .quiz-cell.is-correct {
+        border-color: var(--success);
+        background: var(--success-tint);
+    }
+
+    .quiz-cell.is-wrong {
+        border-color: var(--error);
+        background: var(--error-tint);
+    }
+
+    .quiz-cell.is-skipped {
+        border-color: var(--ink-faint);
+        background: var(--paper);
+        opacity: .75;
+    }
+</style>
+
+@section Scripts {
+    <script>
+    const hiraganaData = @Json.Serialize(Model.HiraganaList);
+    const katakanaData = @Json.Serialize(Model.KatakanaList);
+
+    function speakKana(text) {
+           // Sử dụng API tạo giọng nói chuẩn, không phụ thuộc vào thiết bị người dùng
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ja&client=tw-ob&q=${encodeURIComponent(text)}`;
+        const audio = new Audio(url);
+
+        audio.play().catch(function (error) {
+            console.log('Lỗi phát âm:', error);
+            alert('Không thể phát âm thanh. Vui lòng kiểm tra xem máy có đang để chế độ im lặng không nhé!');
+        });
+    }
+
+    (function () {
+        // --- Xử lý chuyển đổi qua lại giữa Hiragana và Katakana ---
+        const btnHiragana = document.getElementById('btnToggleHiragana');
+        const btnKatakana = document.getElementById('btnToggleKatakana');
+        const tableHiragana = document.getElementById('tableHiragana');
+        const tableKatakana = document.getElementById('tableKatakana');
+
+        btnHiragana.addEventListener('click', () => {
+            tableHiragana.style.display = 'block';
+            tableKatakana.style.display = 'none';
+            btnHiragana.className = 'btn btn--primary';
+            btnKatakana.className = 'btn btn--ghost';
+        });
+
+        btnKatakana.addEventListener('click', () => {
+            tableHiragana.style.display = 'none';
+            tableKatakana.style.display = 'block';
+            btnHiragana.className = 'btn btn--ghost';
+            btnKatakana.className = 'btn btn--primary';
+        });
+
+        // --- Xử lý Bài kiểm tra ---
+        const bySccope = { hiragana: hiraganaData, katakana: katakanaData, both: hiraganaData.concat(katakanaData) };
+        const lessonSection = document.getElementById('lessonSection');
+        const settingsPanel = document.getElementById('quizSettings');
+        const questionPanel = document.getElementById('quizQuestion');
+        const resultPanel = document.getElementById('quizResult');
+        const qGrid = document.getElementById('qGrid');
+        const qProgress = document.getElementById('qProgress');
+
+        let items = [], totalCount = 0, startTime = 0, endTime = 0, timerInterval = null, finished = false;
+        let lastScope = 'hiragana', lastMinutes = 10;
+
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function updateProgress() {
+            const filled = Array.from(qGrid.querySelectorAll('.quiz-cell__input')).filter(i => i.value.trim() !== '').length;
+            qProgress.textContent = filled + ' / ' + totalCount + ' đã điền';
+        }
+
+        function startQuiz(scope, minutes) {
+            lastScope = scope;
+            lastMinutes = minutes;
+
+            items = shuffle(bySccope[scope].slice());
+            totalCount = items.length;
+            startTime = Date.now();
+            endTime = startTime + minutes * 60000;
+            finished = false;
+
+            lessonSection.style.display = 'none'; // Ẩn phần bảng chữ
+            settingsPanel.style.display = 'none';
+            resultPanel.style.display = 'none';
+            questionPanel.style.display = 'block';
+
+            qGrid.innerHTML = '';
+            items.forEach(item => {
+                const cell = document.createElement('div');
+                cell.className = 'quiz-cell';
+                cell.innerHTML =
+                    '<span class="quiz-cell__char">' + item.character + '</span>' +
+                    '<input type="text" class="quiz-cell__input" data-romaji="' + item.romaji + '" autocomplete="off" placeholder="romaji">';
+                qGrid.appendChild(cell);
+            });
+            qGrid.addEventListener('input', updateProgress);
+            updateProgress();
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+            updateTimer();
+        }
+
+        document.getElementById('startQuizBtn').addEventListener('click', () => {
+            const scope = document.getElementById('quizScope').value;
+            const minutes = parseInt(document.getElementById('quizDuration').value, 10);
+            startQuiz(scope, minutes);
+        });
+
+        document.getElementById('qForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            finishQuiz();
+        });
+
+        function updateTimer() {
+            const remain = Math.max(0, endTime - Date.now());
+            const m = Math.floor(remain / 60000), s = Math.floor((remain % 60000) / 1000);
+            document.getElementById('qTimer').textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+            if (remain <= 0) finishQuiz();
+        }
+
+        function finishQuiz() {
+            if (finished) return;
+            finished = true;
+            clearInterval(timerInterval);
+
+            let correctCount = 0, wrongCount = 0, skippedCount = 0;
+            qGrid.querySelectorAll('.quiz-cell').forEach(cell => {
+                const input = cell.querySelector('.quiz-cell__input');
+                const val = input.value.trim().toLowerCase();
+                const expected = (input.dataset.romaji || '').toLowerCase();
+                if (val === '') {
+                    skippedCount++;
+                    cell.classList.add('is-skipped');
+                } else if (val === expected) {
+                    correctCount++;
+                    cell.classList.add('is-correct');
+                } else {
+                    wrongCount++;
+                    cell.classList.add('is-wrong');
+                }
+            });
+
+            const elapsedSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+            const pct = totalCount ? Math.round((correctCount / totalCount) * 100) : 0;
+
+            document.getElementById('rScore').textContent = correctCount + ' / ' + totalCount;
+            document.getElementById('rPct').textContent = pct + '%';
+            document.getElementById('rCorrect').textContent = correctCount;
+            document.getElementById('rWrong').textContent = wrongCount;
+            document.getElementById('rSkipped').textContent = skippedCount;
+            const m = Math.floor(elapsedSec / 60), s = elapsedSec % 60;
+            document.getElementById('rTime').textContent = m + ':' + String(s).padStart(2, '0');
+            document.getElementById('rMsg').textContent =
+                pct >= 90 ? 'Xuất sắc! Bạn nhớ rất chắc.' :
+                pct >= 70 ? 'Khá tốt — luyện thêm chút nữa nhé.' :
+                'Cần luyện tập thêm, đừng nản!';
+
+            setTimeout(() => {
+                questionPanel.style.display = 'none';
+                resultPanel.style.display = 'block';
+            }, 700);
+        }
+
+        document.getElementById('retryBtn').addEventListener('click', () => {
+            resultPanel.style.display = 'none';
+            startQuiz(lastScope, lastMinutes);
+        });
+
+        document.getElementById('backBtn').addEventListener('click', () => {
+            resultPanel.style.display = 'none';
+            questionPanel.style.display = 'none';
+            lessonSection.style.display = '';
+            settingsPanel.style.display = 'block';
+        });
+    })();
+    </script>
+}
